@@ -1,0 +1,26 @@
+\documentclass[varwidth,crop,border={0cm 0cm 0cm 0cm}]{standalone}
+
+\usepackage{graphicx}
+\usepackage{dejavu}
+\renewcommand*\familydefault{\sfdefault}
+\usepackage[T1]{fontenc}
+
+\usepackage[
+    labelfont=bf,
+    labelformat=parens,
+    justification=raggedright,
+    position=top,
+    ]{caption,subfig}
+
+\begin{document}
+
+\begin{figure}
+    \subfloat[]{%
+        \includegraphics[width=0.45\textwidth]{../output/imlup.pdf}%
+    }\quad
+    \subfloat[]{%
+        \includegraphics[width=0.5\textwidth,trim=5cm 4cm 7cm 12cm, clip]{emission.pdf}%
+    }
+\end{figure}
+
+\end{document}
