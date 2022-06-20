@@ -1,25 +1,31 @@
-\documentclass[varwidth,crop,border={0cm 0cm 0cm 0cm}]{standalone}
+%\documentclass[varwidth=\maxdimen,crop,border={0cm 0cm 0cm 0cm}]{standalone}
+\documentclass[border=3.141592, preview]{standalone}
 
 \usepackage{graphicx}
 \usepackage{dejavu}
 \renewcommand*\familydefault{\sfdefault}
 \usepackage[T1]{fontenc}
 
-\usepackage[
-    labelfont=bf,
-    labelformat=parens,
-    justification=raggedright,
-    position=top,
-    ]{caption,subfig}
+\usepackage[font=small,
+            labelfont=bf,
+            justification=raggedright,
+            labelsep=colon,
+            ]{caption}
+\usepackage[labelformat=simple,  %
+            singlelinecheck=false,
+            position=top,
+            ]{subcaption}  
+
+%\renewcommand\thesubfigure{\alph{subfigure})}
 
 \begin{document}
 
 \begin{figure}
     \subfloat[]{%
-        \includegraphics[width=0.45\textwidth]{../output/imlup.pdf}%
-    }\quad
+        \includegraphics[width=.5\textwidth]{../output/imlup.pdf}%
+    }\hfil
     \subfloat[]{%
-        \includegraphics[width=0.5\textwidth,trim=5cm 4cm 7cm 12cm, clip]{emission.pdf}%
+        \includegraphics[width=.5\textwidth,trim=5.3cm 4cm 8cm 12cm, clip]{emission.pdf}%
     }
 \end{figure}
 
