@@ -1,0 +1,36 @@
+%\documentclass[varwidth=\maxdimen,crop,border={0cm 0cm 0cm 0cm}]{standalone}
+\documentclass[border=3.141592, preview]{standalone}
+
+\usepackage{graphicx}
+\usepackage{dejavu}
+\renewcommand*\familydefault{\sfdefault}
+\usepackage[T1]{fontenc}
+
+\usepackage[font=small,
+            labelfont=bf,
+            justification=raggedright,
+            labelsep=colon,
+            ]{caption}
+\usepackage[labelformat=simple,  %
+            singlelinecheck=false,
+            position=top,
+            ]{subcaption} 
+
+%\renewcommand\thesubfigure{\alph{subfigure})}
+
+\begin{document}
+
+\begin{figure}
+    \centering
+    \subfloat{%
+        \includegraphics[width=\textwidth]{../output/imlup2.pdf}%
+    }\\
+    \begin{scriptsize}
+        \textit{\textbf{d}}
+    \end{scriptsize}\hspace{.4cm}
+    \subfloat{%
+        \includegraphics[width=.8\textwidth,trim=5.3cm 4cm 8cm 12cm, clip]{emission.pdf}%
+    }
+\end{figure}
+
+\end{document}
