@@ -31,8 +31,12 @@ class image():
 
     def __init__(self, fname, clip=None):
         h = fits.getheader(fname)
+
         d = np.squeeze(fits.getdata(fname)).T
+        d[np.isnan(d)] = 0.0
         d = d / d.max()
+
+        naxis = d.ndim
 
         dx = h['CDELT1'] * 3600
         dy = h['CDELT2'] * 3600
@@ -40,13 +44,23 @@ class image():
         x = dx * (np.arange(h['NAXIS1']) - h['CRPIX1'] + 1)
         y = dy * (np.arange(h['NAXIS2']) - h['CRPIX2'] + 1)
 
+        if naxis == 3:
+            nz = h['NAXIS3']
+            dz = h['CDELT3']
+            z = h['CRVAL3'] + np.arange(nz) * dz
+
         if clip is not None:
             xmask = np.abs(x) < clip
             ymask = np.abs(y) < clip
             xymask = xmask[:, None] & ymask[None, :]
             x = x[xmask]
             y = y[ymask]
-            d = d[xymask].reshape(len(x), len(y))
+            if naxis == 2:
+                d = d[xymask].reshape(len(x), len(y))
+            elif naxis == 3:
+                d = d[xymask].reshape(len(x), len(y), len(z))
+            else:
+                raise ValueError('data needs to be 2D or 3D')
 
         self.xi = np.hstack((x - 0.5 * dx, x[-1] + 0.5 * dx))
         self.yi = np.hstack((y - 0.5 * dy, y[-1] + 0.5 * dy))
@@ -57,6 +71,10 @@ class image():
         self.y = y
         self.h = h
         self.data = d
+
+        if naxis == 3:
+            self.z = z
+            self.zi = np.hstack((z - 0.5 * dz, z[-1] + 0.5 * dz))
 
 
 def plot_ring(ax, r, z, inc, PA, nphi=50, **kwargs):

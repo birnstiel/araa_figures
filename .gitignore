@@ -3,3 +3,4 @@ output/
 __pycache__/
 data_IMLup/IMLup_continuum.fits
 data_IMLup/IM_Lup_reducedRob_median_Hband_12.25mas_mod.fits
+data_IMLup/IMLup.profile.txt
