@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, ListedColormap
-from scipy.interpolate import interp2d, RectBivariateSpline
+from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
 from scipy.integrate import solve_ivp
 import seaborn as sns
 
@@ -24,8 +24,9 @@ def get_transparent_cmap(cmap=None):
 
 def _scale(t, tmin=1e2, tmax=1e6, dxmin=0.5, dxmax=0.1):
     """define a scaling function that scales time scales to arrow length"""
-    t = min(max(tmin, t), tmax)
-    return dxmin + (dxmax - dxmin) * (np.log10(t) - np.log10(tmin)) / (np.log10(tmax) - np.log10(tmin))
+    sign = np.sign(t)
+    t = min(max(tmin, np.abs(t)), tmax)
+    return sign * (dxmin + (dxmax - dxmin) * (np.log10(t) - np.log10(tmin)) / (np.log10(tmax) - np.log10(tmin)))
 
 
 scale = np.vectorize(_scale)
@@ -51,10 +52,10 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
     # Compute the time scales
 
     # drift time scale interpolation function
-    _t_drift = RectBivariateSpline(np.log10(r), np.log10(a), np.log10(np.abs(r[:, None] / (s.dust.v.rad - s.gas.v.rad[:, None]))))
+    t_drift = RectBivariateSpline(np.log10(r), np.log10(a), r[:, None] / (s.dust.v.rad - s.gas.v.rad[:, None]))
 
-    def t_drift(x, y):
-        return 10.**_t_drift(x, y).T
+    # def t_drift(x, y):
+    #     return 10.**_t_drift(x, y).T
 
     # growth time scale interpolation function
     _tg = (1. / (s.dust.eps * s.grid.OmegaK))[None, :] * np.ones_like(s.dust.a.T)
@@ -65,6 +66,8 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
     gamma = np.abs(2 * s.gas.eta / (s.gas.Hp / s.grid.r)**2)
     a_drift = 2 * s.dust.Sigma.sum(-1) * (s.grid.OmegaK * s.grid.r / s.gas.cs)**2 / (np.pi * gamma * s.dust.rhos.mean())
     St_frag = (s.dust.v.frag / s.gas.cs)**2 / (3.0 * s.gas.alpha)
+    _a_frag_ep = 2.0 * St_frag * s.gas.Sigma / (np.pi * s.dust.rhos.mean())
+    a_frag_ep = interp1d(s.grid.r, _a_frag_ep, fill_value=_a_frag_ep[0], bounds_error=False)
 
     if trajectories is not None:
         #
@@ -76,15 +79,16 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
             "time derivative of the vector (particle size, radius)"
             a = y[0]
             r = y[1]
-            if (a < amin) or (a > amax):
-                dadt = 0.0
+
+            if (a < amin) or (a > amax) or (a > a_frag_ep(r)):
+                dadt = a / (1e8 * year)
             else:
                 dadt = a / t_grow(np.log10(r), np.log10(a))[0]
 
             if (r < rmin) or (r > rmax):
-                drdt = 0.0
+                drdt = -r / (1e8 * year)
             else:
-                drdt = -r / t_drift(np.log10(r), np.log10(a))[0, 0]
+                drdt = r / t_drift(np.log10(r), np.log10(a))[0, 0]
 
             return np.array([dadt, drdt])
 
@@ -97,7 +101,7 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
             # print('integrating at r0 = {} AU'.format(r0))
 
             y0 = np.array([1e-4, r0 * au])
-            res = solve_ivp(dydt, [0, t_grid[-1]], y0, t_eval=t_grid, vectorized=False, method='BDF')
+            res = solve_ivp(dydt, [0, t_grid[-1]], y0, t_eval=t_grid, vectorized=False, method='LSODA')  # 'LSODA')  # 'BDF')
             if not res['success']:
                 raise ValueError(res['message'])
             SOLS += [res]
@@ -108,7 +112,7 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
     arrow_r = np.geomspace(r[0], r[-1], nr)
     arrow_a = np.geomspace(a[0], a[-1], na)
 
-    arrow_d = t_drift(np.log10(arrow_r), np.log10(arrow_a)) / year
+    arrow_d = t_drift(np.log10(arrow_r), np.log10(arrow_a)).T / year
     arrow_g = t_grow(np.log10(arrow_r), np.log10(arrow_a)) / year
 
     #
@@ -167,9 +171,9 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
 
     # plot the arrows
 
-    ax.quiver(arrow_r / au, arrow_a, -scale(arrow_d), np.zeros_like(arrow_d), color=cols[8], **quiver_kwargs)
+    ax.quiver(arrow_r / au, arrow_a, scale(arrow_d), np.zeros_like(arrow_d), color=cols[8], **quiver_kwargs)
     ax.quiver(arrow_r / au, arrow_a, np.zeros_like(arrow_g), scale(arrow_g), color=cols[8], **quiver_kwargs)
-    Qxy = ax.quiver(arrow_r / au, arrow_a, -scale(arrow_d), scale(arrow_g), color='k', **quiver_kwargs)
+    Qxy = ax.quiver(arrow_r / au, arrow_a, scale(arrow_d), scale(arrow_g), color='k', **quiver_kwargs)
 
     # plot the trajectories
     if trajectories is not None:
