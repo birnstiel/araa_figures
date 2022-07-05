@@ -2,7 +2,9 @@
 \documentclass[border=3.141592, preview]{standalone}
 
 \usepackage{graphicx}
+\usepackage{xcolor}
 \usepackage{dejavu}
+\usepackage{mwe}
 \renewcommand*\familydefault{\sfdefault}
 \usepackage[T1]{fontenc}
 
@@ -16,21 +18,20 @@
             position=top,
             ]{subcaption} 
 
-%\renewcommand\thesubfigure{\alph{subfigure})}
+\setlength{\fboxsep}{0pt}
 
 \begin{document}
 
 \begin{figure}
-    \centering
-    \subfloat{%
-        \includegraphics[width=\textwidth]{../output/imlup2.pdf}%
-    }\\
-    \begin{scriptsize}
-        \textit{\textbf{d}}
-    \end{scriptsize}\hspace{.4cm}
-    \subfloat{%
-        \includegraphics[width=.8\textwidth,trim=5.3cm 1cm 7cm 12cm, clip]{emission.pdf}%
-    }
+    \begin{center}
+        \includegraphics[width=\textwidth]{drag_law}\\
+    \end{center}
+    \vspace{-4.5cm}
+    \hspace{1.80cm}\includegraphics[width=0.1\textwidth,trim=693pt 191pt   9pt 351pt, clip]{flows}
+    \hspace{0.82cm}\includegraphics[width=0.1\textwidth,trim=349pt 471pt 353pt  70pt, clip]{flows}
+    \hspace{1.30cm}\includegraphics[width=0.1\textwidth,trim=  8pt 191pt 694pt 351pt, clip]{flows}
+    \hspace{1.30cm}\includegraphics[width=0.1\textwidth,trim=693pt 471pt   9pt  70pt, clip]{flows}
+    \vspace{6cm}
 \end{figure}
 
 \end{document}
