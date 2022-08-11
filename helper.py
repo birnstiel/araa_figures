@@ -130,7 +130,7 @@ def plot_ring(ax, r, z, inc, PA, nphi=50, **kwargs):
     ax.plot(xo, yo, **kwargs)
 
 
-def apply_araa_style(ax, ndec=0):
+def apply_araa_style(ax):
     """Applies some of the styling for the ARA&A figures.
 
     Parameters
@@ -141,8 +141,8 @@ def apply_araa_style(ax, ndec=0):
         how many digits to show on the ticks, by default 0
     """
     from matplotlib.ticker import StrMethodFormatter
-    ax.xaxis.set_major_formatter(StrMethodFormatter(f'{{x:,.{ndec:d}f}}'))
-    ax.yaxis.set_major_formatter(StrMethodFormatter(f'{{x:,.{ndec:d}f}}'))
+    ax.xaxis.set_major_formatter(StrMethodFormatter(f'{{x:,g}}'))
+    ax.yaxis.set_major_formatter(StrMethodFormatter(f'{{x:,g}}'))
 
     for axis in [ax.xaxis, ax.yaxis]:
         axis.label.set_fontweight('bold')
