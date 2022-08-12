@@ -3,8 +3,10 @@ from pathlib import Path
 from astropy.io import fits
 from scipy.spatial.transform import Rotation as R
 
-output_dir = Path('output')
+output_dir = (Path(__file__).parent.resolve() / 'output').absolute()
 output_dir.mkdir(exist_ok=True)
+
+data_dir = (Path(__file__).parent.resolve() / 'data').absolute()
 
 sqdeg_per_sr = 4 * np.pi**2 / 360.0**2
 

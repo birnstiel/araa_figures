@@ -1,7 +1,9 @@
 *.pdf
-IMLup/output/
+output/
 .ipynb_checkpoints/
 __pycache__/
-IMLup/data_IMLup/IMLup_continuum.fits
-IMLup/data_IMLup/IM_Lup_reducedRob_median_Hband_12.25mas_mod.fits
-IMLup/data_IMLup/IMLup.profile.txt
+data/data_IMLup/IMLup_continuum.fits
+data/data_IMLup/IM_Lup_reducedRob_median_Hband_12.25mas_mod.fits
+data/data_IMLup/IMLup.profile.txt
+data/data/
+data/data_bump/
