@@ -1,14 +1,29 @@
 import numpy as np
+from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, ListedColormap
 from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
 from scipy.integrate import solve_ivp
+from scipy.signal import argrelextrema
 import seaborn as sns
 
 import dustpy
 
 year = dustpy.constants.year
 au = dustpy.constants.au
+
+
+def read_paletton_text(file='paletton.txt'):
+    "reads a text file as produced by palleton.com (textfile output)"
+
+    txt = Path(file).read_text()
+
+    colors = np.array([
+        line.split('=')[2].strip()[4:-1].split(',')
+        for line in txt.split('\n')
+        if not line == '' and not line.startswith(('#', '*'))
+    ]).astype(int).reshape(-1, 5, 3)
+    return colors
 
 
 def get_transparent_cmap(cmap=None):
@@ -32,7 +47,7 @@ def _scale(t, tmin=1e2, tmax=1e6, dxmin=0.5, dxmax=0.1):
 scale = np.vectorize(_scale)
 
 
-def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5, vmax=1e1, cmap=None, rasterized=True):
+def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5, vmax=1e1, cmap=None, rasterized=True, cols=None):
     """Plots my review quiver plot based on a dustpy snapshot"""
 
     # ## Read a snapshot
@@ -101,7 +116,9 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
             # print('integrating at r0 = {} AU'.format(r0))
 
             y0 = np.array([1e-4, r0 * au])
-            res = solve_ivp(dydt, [0, t_grid[-1]], y0, t_eval=t_grid, vectorized=False, method='LSODA')  # 'LSODA')  # 'BDF')
+            with np.testing.suppress_warnings() as sup:
+                sup.filter(RuntimeWarning, 'invalid value encountered in log10')
+                res = solve_ivp(dydt, [0, t_grid[-1]], y0, t_eval=t_grid, vectorized=False, method='LSODA')  # 'LSODA')  # 'BDF')
             if not res['success']:
                 raise ValueError(res['message'])
             SOLS += [res]
@@ -135,7 +152,8 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
 
     # Begin Figure
 
-    cols = sns.color_palette('Set1')
+    if cols is None:
+        cols = sns.color_palette('Set1')
     cmap = get_transparent_cmap(cmap)
 
     fig, ax = plt.subplots(figsize=(8, 5), dpi=200)
@@ -146,12 +164,26 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
 
     # plot dust surface density
 
-    ax.pcolormesh(r / au, a, sig_d.T, norm=LogNorm(vmin, vmax), cmap=cmap, label=r'$\Sigma_{dust}$', rasterized=rasterized)
+    # either as pcolormesh
+    # cc = ax.pcolormesh(r / au, a, sig_d.T, norm=LogNorm(vmin, vmax), cmap=cmap, label=r'$\Sigma_{dust}$', rasterized=rasterized)
+
+    # or as contours
+    levels = 10.**np.arange(int(np.log10(vmin)), np.ceil(np.log10(vmax)))
+    cc = ax.contourf(r / au, a, sig_d.T, levels=levels, norm=LogNorm(vmin, vmax), cmap=cmap)
+
+    # color bar
+
+    pos = ax.get_position()
+    cax = fig.add_axes([pos.x0, pos.y1 + 0.01, pos.width, pos.height / 20])
+    cb = plt.colorbar(cc, cax=cax, orientation='horizontal')
+    cb.set_label(r'$\sigma(r, a)$ [g / cm$^2$]')
+    cb.ax.xaxis.set_label_position('top')
+    cb.ax.xaxis.set_ticks_position('top')
 
     # plot the drift and fragmentation limits
 
-    ax.plot(r / au, a_drift, label='drift limit', c=cols[1], lw=3)
-    cc = ax.contour(r / au, a, s.dust.St.T - St_frag, [0], colors=[cols[1]], linewidths=3, linestyles='--')
+    ax.plot(r / au, a_drift, label='drift limit', c=cols[0], lw=2)
+    cc = ax.contour(r / au, a, s.dust.St.T - St_frag, [0], colors=[cols[0]], linewidths=2, linestyles='--')
     ax.plot([], [], c=cc.colors[0], ls=cc.linestyles, lw=cc.linewidths, label='fragmentation limit')
 
     # stokes contours
@@ -166,33 +198,34 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
                        (st_radius, .4e-1),
                        (st_radius, .4e0),
                        (st_radius, .4e1),
-                       (st_radius, .4e2),
                        ])
 
     # plot the arrows
 
-    ax.quiver(arrow_r / au, arrow_a, scale(arrow_d), np.zeros_like(arrow_d), color=cols[8], **quiver_kwargs)
-    ax.quiver(arrow_r / au, arrow_a, np.zeros_like(arrow_g), scale(arrow_g), color=cols[8], **quiver_kwargs)
+    ax.quiver(arrow_r / au, arrow_a, scale(arrow_d), np.zeros_like(arrow_d), color=cols[1], **quiver_kwargs)
+    ax.quiver(arrow_r / au, arrow_a, np.zeros_like(arrow_g), scale(arrow_g), color=cols[1], **quiver_kwargs)
     Qxy = ax.quiver(arrow_r / au, arrow_a, scale(arrow_d), scale(arrow_g), color='k', **quiver_kwargs)
 
     # plot the trajectories
     if trajectories is not None:
         for SOL in SOLS:
+            # remove too large, or unphysical parts of the solution
             mask = SOL.y[0] <= a[-1]
-            line, = ax.loglog(SOL.y[1][mask] / au, SOL.y[0][mask], '--', c=cols[0])
-            for _t in [3, 4, 5, 6]:
-                _r = np.interp(10.**_t * year, SOL.t, SOL.y[1])
-                _a = np.interp(10.**_t * year, SOL.t, SOL.y[0])
-                if np.isclose(_a, SOL.y[0][-1]):
+            mask = mask & (~np.isnan(SOL.y).any(0)) & (~np.isinf(SOL.y).any(0))
+
+            line, = ax.loglog(SOL.y[1][mask] / au, SOL.y[0][mask], '--', c=cols[2])
+            for it, _t in enumerate([3, 4, 5, 6]):
+                _r = np.interp(10.**_t * year, SOL.t[mask], SOL.y[1][mask])
+                _a = np.interp(10.**_t * year, SOL.t[mask], SOL.y[0][mask])
+                if np.isclose(_a, SOL.y[0][mask][-1]):
                     continue
-                ax.scatter(_r / au, _a, c='k', s=45, zorder=100, fc=line.get_color())
-                ax.text(_r / au, _a, f'{_t}', horizontalalignment='center', verticalalignment='center', fontsize='xx-small', color='w', zorder=101)
+                sca = ax.scatter(_r / au, _a, c='k', s=45, zorder=100 + it, fc=line.get_color())
+                ax.text(_r / au, _a, f'{_t}', horizontalalignment='center', verticalalignment='center', fontsize='xx-small', color='w', zorder=sca.zorder + 1)
         line.set_label('trajectory')
 
     # plot the quiver key
 
     rect = plt.Rectangle((xo - 0.01, yo), 0.3, 0.45, facecolor="w", alpha=0.75, transform=ax.transAxes, zorder=3, lw=.1, ec='k')
-    ax.minorticks_off()
     ax.add_patch(rect)
 
     qk1 = ax.quiverkey(Qxy, xo + 0.08, yo + 0.05 * 5, scale(1e6), r'$10^6$ years', color='k', **kprops, fontproperties=fprops)
@@ -209,7 +242,83 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
 
     ax.text(0.8, 0.99, f't = {num2tex(s.t / year)} yr', horizontalalignment='left', verticalalignment='top', transform=ax.transAxes)
 
-    return fig, ax
+    # minor grid only on x-axis
+    ax.minorticks_on()
+    ax.yaxis.set_tick_params(which='minor', left=False)
+
+    return fig, ax, SOLS
+
+
+def plot_size_distri(dustpy_file, radii_au=[3, -30, 100], cols=None):
+    """plots the size distibutions of a dustpy simulation"""
+
+    if not isinstance(dustpy_file, list):
+        dustpy_file = [dustpy_file]
+
+    writer = dustpy.hdf5writer()
+    f, ax = plt.subplots()
+
+    # the part that is to be done for every file
+    for i_file, file in enumerate(dustpy_file):
+
+        # Read a snapshot
+        s = writer.read.output(file)
+
+        # Get the grid and dust surface density $\Sigma_d$
+
+        a = s.dust.a[0, :]
+        r = s.grid.r
+
+        A = np.mean(s.grid.m[1:] / s.grid.m[:-1])
+        B = 2 * (A - 1) / (A + 1)
+        # normalized
+        sig_d = s.dust.Sigma / s.dust.Sigma.sum(1)[:, None] / B
+
+        # if a radius is negative, replace it with nearby pressure bump
+        # first: find local pressure maxima
+        rmax = np.array([s.grid.r[i] / au for i in argrelextrema(s.gas.P, np.greater)])[0]
+        for ir, _r in enumerate(radii_au):
+            if (_r < 0) & (len(rmax) > 0):
+                radii_au[ir] = rmax[np.abs(rmax - np.abs(_r)).argmin()]
+        radii_au = [_r for _r in radii_au if _r > 0]
+
+        lines = []
+        labels = []
+        for i, _r in enumerate(radii_au):
+            ir = np.abs(r - _r * au).argmin()
+
+            Sig_i = sig_d[ir, :]
+            # n_of_a = 3 * Sig_i / (B * m * a)
+
+            lines += ax.loglog(a, Sig_i / B, c=f'C{i}',
+                               alpha=0.5 * i_file / (len(dustpy_file) - 1) + 0.5 * (i_file == len(dustpy_file) - 1),
+                               lw=1 + 1.5 * (i_file == len(dustpy_file) - 1)
+                               )
+            labels += [f'{_r:.1f} au']
+
+    for _li, _la in zip(lines, labels):
+        _li.set_label(_la)
+    ax.legend()
+
+    ax.set_xlim(left=a[0])
+    ax.set_ylim(1e-6, 1e+1)
+    ax.set_xlabel('particle size [cm]')
+    ax.set_ylabel(r'normalized $\sigma(r, a)$ [g / cm$^2$]')
+
+    # add reference slopes
+    pos = ax.get_position()
+    for slope, y0, angle in zip([0.5, 1.5], [1e-2, 1e-6], [15, 39]):
+        angle = np.arctan(slope / ax.get_data_ratio() * pos.height / pos.width * f.get_figheight() / f.get_figwidth()) * 180 / np.pi
+        ax.loglog(a, y0 * (a / a[0])**slope, c='0.0', ls='--')
+        ax.text(80 * a[0], (0.3 * (1 - np.sin(angle))) * y0 * 80**slope, f'$n(a)\propto a^{{{slope-4:.1f}}}$', rotation=angle, color='0.0', ha='center', va='bottom')
+
+        ax.legend()
+
+    # minor grid only on x-axis
+    ax.minorticks_on()
+    ax.yaxis.set_tick_params(which='minor', left=False)
+
+    return ax
 
 
 def num2tex(n, x=2, y=2):
