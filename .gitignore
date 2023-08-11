@@ -1,6 +1,7 @@
 *.pdf
 output/
 .ipynb_checkpoints/
+.jupyter/
 __pycache__/
 data/data_IMLup/IMLup_continuum.fits
 data/data_IMLup/IM_Lup_reducedRob_median_Hband_12.25mas_mod.fits

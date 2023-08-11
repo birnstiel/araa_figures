@@ -47,7 +47,7 @@ def _scale(t, tmin=1e2, tmax=1e6, dxmin=0.5, dxmax=0.1):
 scale = np.vectorize(_scale)
 
 
-def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5, vmax=1e1, cmap=None, rasterized=True, cols=None):
+def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5, vmax=1e1, cmap=None, rasterized=True, cols=None, figsize=(8, 5), ax=None):
     """Plots my review quiver plot based on a dustpy snapshot"""
 
     # ## Read a snapshot
@@ -115,7 +115,7 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
         for r0 in trajectories:
             # print('integrating at r0 = {} AU'.format(r0))
 
-            y0 = np.array([1e-4, r0 * au])
+            y0 = np.array([a[0], r0 * au])
             with np.testing.suppress_warnings() as sup:
                 sup.filter(RuntimeWarning, 'invalid value encountered in log10')
                 res = solve_ivp(dydt, [0, t_grid[-1]], y0, t_eval=t_grid, vectorized=False, method='LSODA')  # 'LSODA')  # 'BDF')
@@ -146,17 +146,17 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
     kprops = {'labelpos': 'E', 'alpha': 1, 'labelsep': 0.05}
     fprops = {'size': 'small'}
 
-    # position of the quiver key
-    xo = 0.0
-    yo = 0.0
-
     # Begin Figure
 
     if cols is None:
         cols = sns.color_palette('Set1')
     cmap = get_transparent_cmap(cmap)
 
-    fig, ax = plt.subplots(figsize=(8, 5), dpi=200)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize, dpi=200)
+    else:
+        fig = ax.figure
+        
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim(arrow_r[[0, -1]] / au)
@@ -173,6 +173,8 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
 
     # color bar
 
+    pos = ax.get_position()
+    ax.set_position([pos.x0, pos.y0, pos.width, pos.height*0.95])
     pos = ax.get_position()
     cax = fig.add_axes([pos.x0, pos.y1 + 0.01, pos.width, pos.height / 20])
     cb = plt.colorbar(cc, cax=cax, orientation='horizontal')
@@ -225,22 +227,27 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
 
     # plot the quiver key
 
-    rect = plt.Rectangle((xo - 0.01, yo), 0.3, 0.45, facecolor="w", alpha=0.75, transform=ax.transAxes, zorder=3, lw=.1, ec='k')
+    # position of the quiver key
+    xo = 0.646
+    yo = 0.675
+
+    rect = plt.Rectangle((xo - 0.01, yo), 0.36, 0.32, facecolor="w", alpha=0.85, transform=ax.transAxes, zorder=30, lw=.1, ec='k')
     ax.add_patch(rect)
 
-    qk1 = ax.quiverkey(Qxy, xo + 0.08, yo + 0.05 * 5, scale(1e6), r'$10^6$ years', color='k', **kprops, fontproperties=fprops)
-    qk2 = ax.quiverkey(Qxy, xo + 0.08, yo + 0.05 * 4, scale(1e5), r'$10^5$ years', color='k', **kprops, fontproperties=fprops)
-    qk3 = ax.quiverkey(Qxy, xo + 0.08, yo + 0.05 * 3, scale(1e4), r'$10^4$ years', color='k', **kprops, fontproperties=fprops)
-    qk4 = ax.quiverkey(Qxy, xo + 0.08, yo + 0.05 * 2, scale(1e3), r'$10^3$ years', color='k', **kprops, fontproperties=fprops)
-    qk5 = ax.quiverkey(Qxy, xo + 0.08, yo + 0.05 * 1, scale(1e2), r'$10^2$ years', color='k', **kprops, fontproperties=fprops)
-    for qk in [qk1, qk2, qk3, qk4, qk5]:
-        qk.set_zorder(4)
-    ax.legend(handlelength=3, loc=(0.01, 0.27), fontsize=fprops['size']).get_frame().set_alpha(0)
+    qkeys = []
+    qkeys += [ax.quiverkey(Qxy, xo + 0.08, yo - 0.025 + 0.05 * 3, scale(1e6), r'$10^6$ years', color='k', **kprops, fontproperties=fprops)]
+    qkeys += [ax.quiverkey(Qxy, xo + 0.08, yo - 0.025 + 0.05 * 2, scale(1e4), r'$10^4$ years', color='k', **kprops, fontproperties=fprops)]
+    qkeys += [ax.quiverkey(Qxy, xo + 0.08, yo - 0.025 + 0.05 * 1, scale(1e2), r'$10^2$ years', color='k', **kprops, fontproperties=fprops)]
+    for qk in qkeys:
+        qk.set_zorder(40)
+    leg = ax.legend(handlelength=3, loc=(xo-0.01, yo+0.14), fontsize=fprops['size'])
+    leg.get_frame().set_alpha(0)
+    leg.zorder = 40
 
     ax.set_xlabel('radius [au]')
     ax.set_ylabel('particle size [cm]')
 
-    ax.text(0.8, 0.99, f't = {num2tex(s.t / year)} yr', horizontalalignment='left', verticalalignment='top', transform=ax.transAxes)
+    ax.text(0.03, 0.99, f't = {num2tex(s.t / year)} yr', horizontalalignment='left', verticalalignment='top', transform=ax.transAxes)
 
     # minor grid only on x-axis
     ax.minorticks_on()
@@ -249,20 +256,39 @@ def plot_quiver(dustpy_file, trajectories=[10, 30, 100], nr=14, na=10, vmin=1e-5
     return fig, ax, SOLS
 
 
-def plot_size_distri(dustpy_file, radii_au=[3, -30, 100], cols=None):
+def plot_size_distri(dustpy_files, radii_au=[3, -30, 100], cols=None, figsize=(8, 5), times=None, legend=False, ax=None):
     """plots the size distibutions of a dustpy simulation"""
 
-    if not isinstance(dustpy_file, list):
-        dustpy_file = [dustpy_file]
+    if not isinstance(dustpy_files, list):
+        dustpy_files = [dustpy_files]
 
     writer = dustpy.hdf5writer()
-    f, ax = plt.subplots()
+    writer.datadir = str(Path(dustpy_files[0]).parent)
 
+    # get the simulation snapshots
+    simtimes = writer.read.sequence('t') / year
+
+    # if not specified, we use all times
+    # otherwise, we select the snapshots closes to the selected times
+    if times is None:
+        i_snap = np.arange(len(dustpy_files))
+    else:
+        i_snap = [np.abs(simtimes - _t).argmin() for _t in times]
+
+    if ax is None:
+        f, ax = plt.subplots(figsize=figsize)
+    else:
+        f = ax.figure
+
+    N_snap = len(i_snap)
+    lines = []
+    labels = []
+    
     # the part that is to be done for every file
-    for i_file, file in enumerate(dustpy_file):
+    for i_plot, i_file in enumerate(i_snap):
 
         # Read a snapshot
-        s = writer.read.output(file)
+        s = writer.read.output(dustpy_files[i_file])
 
         # Get the grid and dust surface density $\Sigma_d$
 
@@ -282,23 +308,36 @@ def plot_size_distri(dustpy_file, radii_au=[3, -30, 100], cols=None):
                 radii_au[ir] = rmax[np.abs(rmax - np.abs(_r)).argmin()]
         radii_au = [_r for _r in radii_au if _r > 0]
 
-        lines = []
-        labels = []
         for i, _r in enumerate(radii_au):
             ir = np.abs(r - _r * au).argmin()
 
             Sig_i = sig_d[ir, :]
             # n_of_a = 3 * Sig_i / (B * m * a)
 
-            lines += ax.loglog(a, Sig_i / B, c=f'C{i}',
-                               alpha=0.5 * i_file / (len(dustpy_file) - 1) + 0.5 * (i_file == len(dustpy_file) - 1),
-                               lw=1 + 1.5 * (i_file == len(dustpy_file) - 1)
-                               )
-            labels += [f'{_r:.1f} au']
+            if N_snap < 10:
+                lw = 0.5 * (i_plot + 1)
+            else:
+                lw = 1 + 1.5 * (i_plot == N_snap - 1)
 
-    for _li, _la in zip(lines, labels):
-        _li.set_label(_la)
-    ax.legend()
+            line, = ax.loglog(a, Sig_i / B, c=f'C{i}',
+                               alpha=0.2 + 0.5 * i_plot / (N_snap - 1) + 0.3 * (i_plot == N_snap - 1),
+                               lw=lw, zorder=100+i)
+            label = f'{_r:.1f} au'
+
+            if i == 0 and legend:
+                lines += ax.plot([], [], c='k', alpha=line.get_alpha(), lw=line.get_linewidth())
+                labels+= [f'$t = {times[i_plot]/1e6:.2f}$ Myr']
+
+            if i_plot == N_snap - 1:
+                lines += [line]
+                labels += [label]
+
+    idx = np.argsort([line.zorder for line in lines])
+    lines = [lines[i] for i in idx]
+    labels = [labels[i] for i in idx]
+    
+    leg=ax.legend(lines, labels)
+    leg.zorder=200
 
     ax.set_xlim(left=a[0])
     ax.set_ylim(1e-6, 1e+1)
@@ -309,10 +348,9 @@ def plot_size_distri(dustpy_file, radii_au=[3, -30, 100], cols=None):
     pos = ax.get_position()
     for slope, y0, angle in zip([0.5, 1.5], [1e-2, 1e-6], [15, 39]):
         angle = np.arctan(slope / ax.get_data_ratio() * pos.height / pos.width * f.get_figheight() / f.get_figwidth()) * 180 / np.pi
-        ax.loglog(a, y0 * (a / a[0])**slope, c='0.0', ls='--')
-        ax.text(80 * a[0], (0.3 * (1 - np.sin(angle))) * y0 * 80**slope, f'$n(a)\propto a^{{{slope-4:.1f}}}$', rotation=angle, color='0.0', ha='center', va='bottom')
-
-        ax.legend()
+        ax.loglog(a, y0 * (a / a[0])**slope, c='0.0', ls='--', zorder=150)
+        
+        ax.text(10 * a[0], y0 * 10**slope * 0.5, f'$n(a)\propto a^{{{slope-4:.1f}}}$', rotation=angle, color='0.0', ha='center', va='center', zorder=150)
 
     # minor grid only on x-axis
     ax.minorticks_on()
