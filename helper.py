@@ -221,7 +221,7 @@ class Capturing(list):
             sys.stdout = self._std
 
 
-def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=True, tlog=False, eps=0.05, ax=None, scatter_kw=None, **kwargs):
+def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=False, ylog=False, tlog=False, eps=0.05, ax=None, scatter_kw=None, k=3, **kwargs):
     """plot an evolutionary track along 2D and marks points in time
 
     Parameters
@@ -239,8 +239,6 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=True, tlo
         label for that track, by default None
     spline : bool, optional
         if true, then spline-interpolate the given points to smooth the track, by default True
-    xlog : bool
-        if x-axis is logarithmic, by default True
     tlog : bool, optional
         if time interpolation is done on a log or linear resolution, by default False
     eps : float, optional
@@ -250,6 +248,12 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=True, tlo
         - give a 2-element array for different fractional parts backward/forward
     ax : matplotlib.Axes
         axes into which to plot, by default None which will create axes
+    xlog : bool, optional
+        if True, interpolation is done on log x values, by default False
+    ylog : bool, optional
+        if True, interpolation is done on log y values, by default False
+    k : int, optional
+        order of the spline, by default 3
     scatter_kw : dict
         keywords for the scatter plot making the circles
 
@@ -266,13 +270,46 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=True, tlo
     if ax is None:
         _, ax = plt.subplots()
 
-    if xlog:
-        ax.set_xscale('log')
-
     # create the splines
-    k = 0 + 3 * spline
-    spl_x = make_interp_spline(time, x, k=k)
-    spl_y = make_interp_spline(time, y, k=k)
+    k = k * int(spline)
+
+    # define the log or linear conversions used in the interpolation
+    def ident(a):
+        return a
+
+    x_conv = ident
+    x_inv = ident
+    y_conv = ident
+    y_inv = ident
+    t_conv = ident
+
+    def log_forward(a):
+        return np.log10(a)
+
+    def log_backward(a):
+        return 10.**a
+
+    if tlog:
+        t_conv = log_forward
+
+    if xlog:
+        x_conv = log_forward
+        x_inv = log_backward
+
+    if ylog:
+        y_conv = log_forward
+        y_inv = log_backward
+
+    # define the spline interpolation    
+
+    _spl_x = make_interp_spline(t_conv(time), x_conv(x), k=k)
+    _spl_y = make_interp_spline(t_conv(time), y_conv(y), k=k)
+
+    def spl_x(t):
+        return x_inv(_spl_x(t_conv(t), extrapolate=True))
+
+    def spl_y(t):
+        return y_inv(_spl_y(t_conv(t), extrapolate=True))
 
     # get a smoother interpolation between the points
     if spline:
@@ -312,6 +349,8 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=True, tlo
     if len(snaps) > 0:
 
         for it, _t in enumerate(snaps):
+            if _t > time_smooth[-1]:
+                continue
             _x = spl_x(_t)
             _y = spl_y(_t)
 
