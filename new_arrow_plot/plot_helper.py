@@ -1,11 +1,14 @@
-import numpy as np
+from types import SimpleNamespace
 from pathlib import Path
+
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, ListedColormap
 from scipy.interpolate import interp1d, interp2d, RectBivariateSpline
 from scipy.integrate import solve_ivp
 from scipy.signal import argrelextrema
 import seaborn as sns
+from astropy.io import ascii
 
 import dustpy
 
@@ -461,3 +464,41 @@ def Kanagawa2017_gap_profile(r, a, q, h, alpha0):
     ret = np.where(mask2, SigMin, ret)
 
     return ret
+
+
+def get_seans_data(filename):
+    # load / parse the data
+    dat = ascii.read(filename)
+    ndisks = len(dat)
+    
+    reff_f = dat['col36']
+    reff = np.zeros(ndisks)
+    reff[reff_f == 0] = (dat['col33'])[reff_f == 0]
+    reff[reff_f == 1] = (dat['col37'])[reff_f == 1]
+
+    data = SimpleNamespace()
+    
+    data.flux   = 10.**dat['col30']
+    data.flux_h = data.flux * (10.**dat['col31'] - 1)
+    data.flux_l = data.flux * (1 - 10.**-dat['col32'])
+    data.flux_f = np.zeros(ndisks)
+    
+    data.reff   = 10.**reff
+    data.reff_h = data.reff * (10.**dat['col34'] - 1)
+    data.reff_l = data.reff * (1 - 10.**-dat['col35'])
+    data.reff_f = reff_f
+    
+    data.mask = (reff_f==0) & (data.flux_f==0)
+    
+    data.mstar = 10.**dat['col17']
+
+    data.__doc__ = \
+    """Data from Andrews et al. 2018a:
+
+    - flux, flux_h, flux_l: flux and its higer & lower limit [Jy]
+    - flux_f : flux-flag, if True, it's an upper limit
+    - reff, reff_h, reff_l: effective radisu and its higer & lower limit [au]
+    - reff_f : r_effective-flag, if True, it's an upper limit
+    - mstar : stellar mass [Msun]
+    """
+    return data

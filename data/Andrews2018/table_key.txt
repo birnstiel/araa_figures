@@ -1,0 +1,72 @@
+col	contents
+---     --------
+1	filename
+2	common name
+3	sample flag
+		0 = Lupus, 1 = SMA
+4	transition disk flag 
+		0 = normal, 1 = transition disk
+5	host flag 
+		0 = normal, 1 = mass upper limit, 2 = mass lower limit,
+		3 = age upper limit, 4 = age lower limit, 9 = no data
+6	parallax / mas
+7	sigma(parallax / mas)
+8	distance / pc
+9	+ sigma(distance / pc)
+10	- sigma(distance / pc)
+11	log Teff / K
+12	+ sigma(log Teff / K)
+13	- sigma(log Teff / K)
+14	log Lstar / Lsun
+15	+ sigma(log Lstar / Lsun)
+16	- sigma(log Lstar / Lsun)
+17	log Mstar / Msun
+18	+ sigma(log Mstar / Msun)
+19	- sigma(log Mstar / Msun)
+20	2-sigma upper or lower limit on log Mstar / Msun (see col5)
+21	log AGE / yr
+22	+ sigma(log AGE / yr)
+23 	- sigma(log AGE / yr)
+24	2-sigma upper or lower limit on log AGE / yr (see col5)
+25	log Mdot / Msun/yr
+26	+ sigma(log Mdot / Msun/yr)
+27	- sigma(log Mdot / Msun/yr)
+28	accretion rate flag
+		0 = normal, 1 = upper limit, 2 = lower limit, 9 = no data
+29	2-sigma upper or lower limit on log Mdot / Msun/yr (see col28)
+30	log Lmm / Jy		(at 140 pc)
+31	+ sigma(log Lmm / Jy)
+32	- sigma(log Lmm / Jy)
+33	log Reff / au
+34	+ sigma(log Reff / au)
+35	- sigma(log Reff / au)
+36	effective size flag
+		0 = normal, 1 = upper limit
+37	2-sigma upper limit on log Reff / au (see col36)
+38	Tdust / K for model A, based on Lstar
+39	+ sigma(Tdust,A / K)
+40	- sigma(Tdust,A / K)
+41	Tdust / K for model B, based on Lstar
+42	+ sigma(Tdust,B / K)
+43	- sigma(Tdust,B / K)
+44	Tir / K for model A, based on Lmips
+45	+ sigma(Tir,A / K)
+46	- sigma(Tir,A / K)
+47      Tir / K for model B, based on Lmips
+48      + sigma(Tir,B / K)
+49      - sigma(Tir,B / K)
+50	log Mdust / Msun for model A, based on Lstar (see col38)
+51	+ sigma(log Mdust,A / Msun)
+52	- sigma(log Mdust,A / Msun)
+53      log Mdust / Msun for model B, based on Lstar (see col41)
+54      + sigma(log Mdust,B / Msun)
+55      - sigma(log Mdust,B / Msun)
+56	log Mdust_ir / Msun for model A, based on Lmips (see col44)
+57	+ sigma(log Mdust_ir,A / Msun)
+58	- sigma(log Mdust_ir,A / Msun)
+59	log Mdust_ir / Msun for model B, based on Lmips (see col47)
+60	+ sigma(log Mdust_ir,B / Msun)
+61	- sigma(log Mdust_ir,B / Msun)
+62	log Lmips / mJy		(at 140 pc)
+63	+ sigma(log Lmips / mJy)
+64	- sigma(log Lmips / mJy)
