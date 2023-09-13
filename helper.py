@@ -3,6 +3,7 @@ from io import StringIO
 from pathlib import Path
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from scipy.spatial.transform import Rotation as R
@@ -363,3 +364,35 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=False, yl
 
             sca = ax.scatter(_x, _y, **scatter_kw)
             ax.text(_x, _y, f'{_t:.1g}', horizontalalignment='center', verticalalignment='center', fontsize='xx-small', color='w', zorder=sca.zorder + 1)
+
+
+def read_paletton_text(file):
+    "reads a text file as produced by palleton.com (textfile output)"
+
+    txt = Path(file).read_text()
+
+    colors = np.array([
+        line.split('=')[2].strip()[4:-1].split(',')
+        for line in txt.split('\n')
+        if not line == '' and not line.startswith(('#', '*'))
+    ]).astype(int).reshape(-1, 5, 3)
+    return colors
+
+# Read the paletton color file
+def set_paletton_colors(idx=[1, 2, 3, 0], plot=True, file=data_dir / 'paletton.txt'):
+    """sets the color cycle to the given paletton text file
+
+    idx : list, optional
+        the order in which the colors appears, by default [1, 2, 3, 0]
+
+    plot : bool, optional
+        whether or not to plot the colors, by default True.
+
+    file : str | path
+        which file to read, defaults to `{data_dir} / 'paletton.txt'`
+    """
+    colors = (read_paletton_text(file)[:, 0, :] / 255).tolist()
+    colors = [colors[i] for i in idx]
+    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors) 
+    if plot:
+        plt.imshow([colors]).axes.axis('off')
