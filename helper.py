@@ -1,6 +1,8 @@
 import sys
 from io import StringIO
 from pathlib import Path
+from types import SimpleNamespace
+import warnings
 
 import numpy as np
 import matplotlib as mpl
@@ -301,7 +303,7 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=False, yl
         y_conv = log_forward
         y_inv = log_backward
 
-    # define the spline interpolation    
+    # define the spline interpolation
 
     _spl_x = make_interp_spline(t_conv(time), x_conv(x), k=k)
     _spl_y = make_interp_spline(t_conv(time), y_conv(y), k=k)
@@ -344,7 +346,8 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=False, yl
                    alpha=line.get_alpha(),
                    linewidth=lw,
                    arrowstyle=f'-|>,head_width={0.3*lw},head_length={0.6*lw}')
-        ax.annotate('', xy=(_x1, _y1), xycoords='data', xytext=(_x0, _y0), textcoords='data', arrowprops=opt, size=5, annotation_clip=False)
+        ax.annotate('', xy=(_x1, _y1), xycoords='data', xytext=(
+            _x0, _y0), textcoords='data', arrowprops=opt, size=5, annotation_clip=False)
 
     # add the time circles
     if len(snaps) > 0:
@@ -363,7 +366,8 @@ def plot_time_path(x, y, time, snaps=[], label=None, spline=True, xlog=False, yl
             scatter_kw['zorder'] = scatter_kw.get('zorder', 110)
 
             sca = ax.scatter(_x, _y, **scatter_kw)
-            ax.text(_x, _y, f'{_t:.1g}', horizontalalignment='center', verticalalignment='center', fontsize='xx-small', color='w', zorder=sca.zorder + 1)
+            ax.text(_x, _y, f'{_t:.1g}', horizontalalignment='center',
+                    verticalalignment='center', fontsize='xx-small', color='w', zorder=sca.zorder + 1)
 
 
 def read_paletton_text(file):
@@ -379,6 +383,8 @@ def read_paletton_text(file):
     return colors
 
 # Read the paletton color file
+
+
 def set_paletton_colors(idx=[1, 2, 3, 0], plot=True, file=data_dir / 'paletton.txt'):
     """sets the color cycle to the given paletton text file
 
@@ -393,6 +399,149 @@ def set_paletton_colors(idx=[1, 2, 3, 0], plot=True, file=data_dir / 'paletton.t
     """
     colors = (read_paletton_text(file)[:, 0, :] / 255).tolist()
     colors = [colors[i] for i in idx]
-    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors) 
+    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=colors)
     if plot:
         plt.imshow([colors]).axes.axis('off')
+
+
+def read_dustpy_data(data_path, time=None):
+    """
+    Read the dustpy files from the directory data_path, then interpolate the
+    densities at the given time snapshots (or take the original time if None is
+    passed).
+
+    Arguments:
+    ----------
+
+    data_path : str
+        path to the output directory where the hdf5 files are
+
+    time : array | None
+        if not None: interpolate at those times
+
+    Output:
+    -------
+    returns dict with these keys:
+    - r
+    - a_max
+    - sig_d
+    - sig_g
+    - time
+    """
+    import dustpy
+    from scipy.interpolate import interp2d
+
+    reader = dustpy.hdf5writer()
+    reader.datadir = str(data_path)
+
+    time_dp = reader.read.sequence("t")
+
+    # Read the radial and mass grid
+    r = reader.read.sequence("grid/r")[0]
+    # rInt = reader.read.sequence("grid/rInt")
+    # m = reader.read.sequence("grid/m")
+
+    # Read the gas and dust densities
+    sig_g = reader.read.sequence("gas/Sigma")
+    sig_da = reader.read.sequence("dust/Sigma")
+    sig_d = sig_da.sum(-1)
+
+    # Read the stokes number and dust size
+    St = reader.read.sequence("dust/St")
+    a = reader.read.sequence("dust/a")[0, 0, :]
+
+    # Read the star mass and radius
+    # M_star = reader.read.sequence("star/M", files]
+    # R_star = reader.read.sequence("star/R", files]
+
+    # Obtain the dust to gas ratio
+    # d2g = sig_d / sig_g
+
+    # Read the Gas and Dust scale height
+    # Hg = reader.read.sequence("gas/Hp")
+    # Hd = reader.read.sequence("dust/h")
+
+    # Read the gas (viscous) and dust velocities
+    # Vel_g = reader.read.sequence("gas/v/visc")
+    Vel_d = reader.read.sequence("dust/v/rad")
+
+    # Read the alpha parameter and the orbital angular velocity
+    # Alpha  = reader.read.sequence("gas/alpha")
+    # OmegaK = reader.read.sequence("grid/OmegaK")
+
+    # Read the gas midplane density, sound speed, and eta parameter
+    # rho = reader.read.sequence("gas/rho")
+    cs = reader.read.sequence("gas/cs")
+    # eta = reader.read.sequence("gas/eta")
+
+    T = reader.read.sequence("gas/T")
+
+    # Obtain the Accretion Rate of dust and gas
+    # Acc_g = 2 * np.pi * r * Vel_g * sig_g
+    # Acc_d = 2 * np.pi * r * (Vel_d * sig_d).sum(-1)
+
+    # Obtain the alpha-viscosity
+    # Visc =  Alpha * cs * cs / OmegaK
+
+    # fragmentation barrier
+    alpha_d = reader.read.sequence("dust/delta/turb")
+    vFrag = reader.read.sequence("dust/v/frag")
+    b = vFrag**2 / (alpha_d * cs**2)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            'ignore',
+            r'invalid value encountered in sqrt')
+        StFr = 1 / (2 * b) * (3 - np.sqrt(9 - 4 * b**2))
+        a_fr = np.array([[np.interp(StFr[it, ir], St[it, ir], a)
+                        for ir in range(len(r))] for it in range(len(time_dp))])
+
+    # mean and maximum grain sizes
+    a_mean = (a * sig_da * np.abs(Vel_d)).sum(-1) / \
+        (sig_da * np.abs(Vel_d)).sum(-1)
+    a_max = a[sig_da.argmax(-1)]
+
+    if time is None:
+        time = time_dp.squeeze()
+    else:
+        time = np.atleast_1d(time.squeeze())
+
+        f_Td = interp2d(np.log10(r), np.log10(time_dp + 1e-100), np.log10(T))
+        f_sd = interp2d(np.log10(r), np.log10(
+            time_dp + 1e-100), np.log10(sig_d))
+        f_sg = interp2d(np.log10(r), np.log10(
+            time_dp + 1e-100), np.log10(sig_g))
+        f_ax = interp2d(np.log10(r), np.log10(
+            time_dp + 1e-100), np.log10(a_max))
+        f_am = interp2d(np.log10(r), np.log10(
+            time_dp + 1e-100), np.log10(a_mean))
+        f_af = interp2d(np.log10(r), np.log10(
+            time_dp + 1e-100), np.log10(a_fr))
+
+        T = 10.**f_Td(np.log10(r), np.log10(time + 1e-100))
+        sig_d = 10.**f_sd(np.log10(r), np.log10(time + 1e-100))
+        sig_g = 10.**f_sg(np.log10(r), np.log10(time + 1e-100))
+        a_max = 10.**f_ax(np.log10(r), np.log10(time + 1e-100))
+        a_mean = 10.**f_am(np.log10(r), np.log10(time + 1e-100))
+        a_fr = 10.**f_af(np.log10(r), np.log10(time + 1e-100))
+
+        sig_da_new = np.zeros([len(time), len(r), len(a)])
+        for ia in range(len(a)):
+            f = interp2d(np.log10(r), np.log10(time_dp + 1e-100),
+                         np.log10(sig_da[:, :, ia]))
+            sig_da_new[:, :, ia] = 10.**f(np.log10(r), np.log10(time + 1e-100))
+
+        sig_da = sig_da_new
+
+    dp = SimpleNamespace(
+        r=r,
+        a_max=a_max,
+        a=a,
+        a_mean=a_mean,
+        sig_d=sig_d,
+        sig_da=sig_da,
+        sig_g=sig_g,
+        time=time,
+        T=T,
+        a_fr=a_fr)
+
+    return dp
